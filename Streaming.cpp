@@ -136,7 +136,7 @@ SoapySDR::Stream *SoapySDRPlay::setupStream(
 
 
     if (SoapySDRPlay::gainPrefs.empty()) {
-        gainPrefs.push_back(SDRPlayGainPref(SDRPLAY_LO_120, 100000, 12000000));
+        gainPrefs.push_back(SDRPlayGainPref(SDRPLAY_LO_120, 10000, 12000000));
         gainPrefs.push_back(SDRPlayGainPref(SDRPLAY_LO_120, 12000000, 30000000));
         gainPrefs.push_back(SDRPlayGainPref(SDRPLAY_LO_120, 30000000, 60000000));
         gainPrefs.push_back(SDRPlayGainPref(SDRPLAY_LO_120, 60000000, 120000000));
@@ -400,10 +400,13 @@ int SoapySDRPlay::readStream(
         mir_sdr_Bw_MHzT bwCheck = getBwEnumForRate(rate);
         double bwCheckVal = getBwValueFromEnum(bwCheck);
 
-        bwChanged = true;
-        newBw = bwCheckVal;
+        /* only change bw when it actually changes */
+        if (bwCheckVal != bw) {
+        	bwChanged = true;
+            newBw = bwCheckVal;
+            SoapySDR_logf(SOAPY_SDR_DEBUG,"Changed BW to : %f", newBw);
+        }
 
-        SoapySDR_log(SOAPY_SDR_DEBUG,"Changed sample rate");
     }
 
     if (centerFreqChanged)
@@ -542,9 +545,9 @@ int SoapySDRPlay::readStream(
                     newGr = activeGainPref->grMax;
                 }
             }
-//            else {
-//                SoapySDR_logf(SOAPY_SDR_DEBUG, "power: low: %f, targ: %f, high: %f, avpow: %f, adpower: %f", adcLow, adcTarget, adcHigh, avgPower, adcPower);
-//            }
+            else {
+                SoapySDR_logf(SOAPY_SDR_DEBUG, "power: low: %f, targ: %f, high: %f, avpow: %f, adpower: %f", adcLow, adcTarget, adcHigh, avgPower, adcPower);
+            }
 
             // only update if change is required
             if (newGr != oldGr) {
@@ -631,14 +634,11 @@ bool SoapySDRPlay::freqBandChanged(double currentFreq, double newFreq) {
 
 // returns a band number for a frequency band
 int SoapySDRPlay::getFreqBand(double frequency) {
-	if (frequency >= 10000 && frequency < 12000000) return 0;
-	else if (frequency >= 12000000 && frequency < 30000000) return 1;
-	else if (frequency >= 30000000 && frequency < 60000000) return 2;
-	else if (frequency >= 60000000 && frequency < 120000000) return 3;
-	else if (frequency >= 120000000 && frequency < 250000000) return 4;
-	else if (frequency >= 250000000 && frequency < 420000000) return 5;
-	else if (frequency >= 420000000 && frequency < 1000000000) return 6;
-	else if (frequency >= 1000000000 && frequency < 2000000000) return 7;
-	else return 8;
+    for (int i = 0, iMax = gainPrefs.size(); i < iMax; i++) {
+        if (frequency >= gainPrefs[i].freqMin && frequency < gainPrefs[i].freqMax) {
+        	return i;
+        }
+    }
+	return -1;
 }
 
